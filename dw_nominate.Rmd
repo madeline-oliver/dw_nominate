@@ -1,0 +1,65 @@
+---
+title: "DW-Nominate Estimates for Dr. Sarah Anderson"
+author: "Madeline Oliver"
+date: "4/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+# read in packages
+library(tidyverse)
+
+# read in data
+house_raw <- read_csv("house_estimates.csv")
+senate_raw <- read_csv("senate_estimates.csv")
+```
+
+```{r}
+# identify 50th member in house
+
+library(dplyr)
+library(stringr)
+
+house_fifty <- house_raw %>%
+  select(congress_num, state, name, dim1, dim1_se) %>%
+  group_by(congress_num) %>%
+  arrange(.,dim1) %>%
+  mutate(rank = row_number())%>%
+  mutate(fifty = ifelse(rank == 50, "true","false")) %>% # fiftieth member
+  mutate(party = ifelse(dim1 < 0, "left", "right")) %>%
+  mutate(med = median(dim1)) %>%
+  mutate(majority = ifelse(med < 0, "left", "right"))
+
+
+  
+
+
+# identify 50th member in senate
+
+senate_fifty <- senate_raw %>%
+  select(congress_num, state, name, dim1, dim1_se) %>%
+  group_by(congress_num) %>%
+  arrange(.,dim1) %>%
+  mutate(rank = row_number())%>%
+  mutate(fifty = ifelse(rank == 50, "true","false")) %>% # fiftieth member
+  mutate(party = ifelse(dim1 < 0, "left", "right")) %>%
+  mutate(med = median(dim1)) %>%
+  mutate(majority = ifelse(med < 0, "left", "right"))
+
+
+senate_sixty_left <- senate_fifty %>%
+  filter(majority == "left") %>%
+  arrange(.,dim1, by_group = TRUE)
+  
+
+senate_sixty_right <- senate_fifty %>%
+  filter(majority == "left")
+
+
+```
+
