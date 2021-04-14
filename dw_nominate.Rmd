@@ -13,6 +13,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 # read in packages
 library(tidyverse)
+library(dplyr)
+library(stringr)
 
 # read in data
 house_raw <- read_csv("house_estimates.csv")
@@ -25,11 +27,10 @@ senate_raw <- tibble::rowid_to_column(senate_raw, "ID")
 ```
 
 ```{r}
+
+###########################################################################
 # identify 50th member in house
-
-library(dplyr)
-library(stringr)
-
+###########################################################################
 house_fifty <- house_raw %>%
   select(congress_num, state, name, dim1, dim1_se, ID) %>%
   group_by(congress_num) %>%
@@ -44,8 +45,9 @@ house_fifty <- house_raw %>%
   mutate(fifty_80pct_low = dim1-(dim1_se*1.28)) %>% # calculate low end of 80% confidence interval
   mutate(fifty_80pct_high = dim1 +(dim1_se*1.28)) # calculate high end of 80% confidence interval
 
+###########################################################################
 # identify 50th member in senate
-
+###########################################################################
 senate_fifty <- senate_raw %>%
   select(congress_num, state, name, dim1, dim1_se, ID) %>%
   group_by(congress_num) %>%
@@ -60,14 +62,19 @@ senate_fifty <- senate_raw %>%
   mutate(fifty_80pct_low = dim1-(dim1_se*1.28)) %>% # calculate low end of 80% confidence interval
   mutate(fifty_80pct_high = dim1 +(dim1_se*1.28)) # calculate high end of 80% confidence interval
 
+
+###########################################################################
 # Find 60th vote on non-majority party side when left has majority
+###########################################################################
+
 senate_sixty_left <- senate_fifty %>%
   filter(majority == "left") %>%
   select(-fifty, -med, -rank) %>%
   arrange(.,desc(dim1)) %>%
   mutate(rank = row_number())%>% # assign a rank to each member based on their dim1 score where the member closest to 1 = 1
   mutate(pivot = ifelse(rank == 60, "true","false")) # 60th vote on the non-majority side is "true")
-  
+
+###########################################################################  
 # Find 60th vote on non-majority party side when right has majority
 senate_sixty_right <- senate_fifty %>%
   filter(majority == "right") %>%
@@ -76,6 +83,7 @@ senate_sixty_right <- senate_fifty %>%
   mutate(rank = row_number())%>% # assign a rank to each member based on their dim1 score where the member closest to -1 =1
   mutate(pivot = ifelse(rank == 60, "true","false")) # 60th vote on the non-majority side is "true")
 
+###########################################################################
 # Create data frame of all historical senate pivot members 
 senate_pivot <- senate_sixty_left %>% 
   bind_rows(senate_sixty_right) %>%
