@@ -16,7 +16,12 @@ library(tidyverse)
 
 # read in data
 house_raw <- read_csv("house_estimates.csv")
+
+house_raw <- tibble::rowid_to_column(house_raw, "ID")
+
 senate_raw <- read_csv("senate_estimates.csv")
+
+senate_raw <- tibble::rowid_to_column(senate_raw, "ID")
 ```
 
 ```{r}
@@ -26,40 +31,56 @@ library(dplyr)
 library(stringr)
 
 house_fifty <- house_raw %>%
-  select(congress_num, state, name, dim1, dim1_se) %>%
+  select(congress_num, state, name, dim1, dim1_se, ID) %>%
   group_by(congress_num) %>%
-  arrange(.,dim1) %>%
-  mutate(rank = row_number())%>%
-  mutate(fifty = ifelse(rank == 50, "true","false")) %>% # fiftieth member
-  mutate(party = ifelse(dim1 < 0, "left", "right")) %>%
-  mutate(med = median(dim1)) %>%
-  mutate(majority = ifelse(med < 0, "left", "right"))
-
-
-  
-
+  arrange(.,dim1) %>% # arrange each member of each congress # by dim1 score from -1 to 1
+  mutate(rank = row_number())%>% # assign a rank to each member based on their dim1 score
+  mutate(fifty = ifelse(rank == 50, "true","false")) %>% # identify the fiftieth member as "true"
+  mutate(party = ifelse(dim1 < 0, "left", "right")) %>% # identify members with dim1 scores below 0 as "left" and above 0 as "right"
+  mutate(med = median(dim1)) %>% # determine where the median voter's dim1 score is in each congress
+  mutate(majority = ifelse(med < 0, "left", "right")) %>% # determine whether left or right is in majority for each congress based on median voter's dim1 score
+  mutate(fifty_90pct_low = (dim1-(dim1_se*1.645))) %>% # Using z* value from standard normal distribution
+  mutate(fifty_90pct_high = (dim1 +(dim1_se*1.645))) %>% # calculate high end of 90% confidence interval
+  mutate(fifty_80pct_low = dim1-(dim1_se*1.28)) %>% # calculate low end of 80% confidence interval
+  mutate(fifty_80pct_high = dim1 +(dim1_se*1.28)) # calculate high end of 80% confidence interval
 
 # identify 50th member in senate
 
 senate_fifty <- senate_raw %>%
-  select(congress_num, state, name, dim1, dim1_se) %>%
+  select(congress_num, state, name, dim1, dim1_se, ID) %>%
   group_by(congress_num) %>%
-  arrange(.,dim1) %>%
-  mutate(rank = row_number())%>%
-  mutate(fifty = ifelse(rank == 50, "true","false")) %>% # fiftieth member
-  mutate(party = ifelse(dim1 < 0, "left", "right")) %>%
-  mutate(med = median(dim1)) %>%
-  mutate(majority = ifelse(med < 0, "left", "right"))
+  arrange(.,dim1) %>% # arrange each member of each congress # by dim1 score from -1 to 1
+  mutate(rank = row_number())%>% # assign a rank to each member based on their dim1 score
+  mutate(fifty = ifelse(rank == 50, "true","false")) %>% # fiftieth member is "true"
+  mutate(party = ifelse(dim1 < 0, "left", "right")) %>% # identify members with dim1 scores below 0 as "left" and above 0 as "right"
+  mutate(med = median(dim1)) %>% # determine where the median voter's dim1 score is in each congress
+  mutate(majority = ifelse((med < 0), "left", "right")) %>% # determine whether left or right is in majority for each congress based on median voter's dim1 score
+  mutate(fifty_90pct_low = (dim1-(dim1_se*1.645))) %>% # Using z* value from standard normal distribution
+  mutate(fifty_90pct_high = (dim1 +(dim1_se*1.645))) %>% # calculate high end of 90% confidence interval
+  mutate(fifty_80pct_low = dim1-(dim1_se*1.28)) %>% # calculate low end of 80% confidence interval
+  mutate(fifty_80pct_high = dim1 +(dim1_se*1.28)) # calculate high end of 80% confidence interval
 
-
+# Find 60th vote on non-majority party side when left has majority
 senate_sixty_left <- senate_fifty %>%
   filter(majority == "left") %>%
-  arrange(.,dim1, by_group = TRUE)
+  select(-fifty, -med, -rank) %>%
+  arrange(.,desc(dim1)) %>%
+  mutate(rank = row_number())%>% # assign a rank to each member based on their dim1 score where the member closest to 1 = 1
+  mutate(pivot = ifelse(rank == 60, "true","false")) # 60th vote on the non-majority side is "true")
   
-
+# Find 60th vote on non-majority party side when right has majority
 senate_sixty_right <- senate_fifty %>%
-  filter(majority == "left")
+  filter(majority == "right") %>%
+  select(-fifty, -med, -rank) %>%
+  arrange(., dim1)%>%
+  mutate(rank = row_number())%>% # assign a rank to each member based on their dim1 score where the member closest to -1 =1
+  mutate(pivot = ifelse(rank == 60, "true","false")) # 60th vote on the non-majority side is "true")
 
-
+# Create data frame of all historical senate pivot members 
+senate_pivot <- senate_sixty_left %>% 
+  bind_rows(senate_sixty_right) %>%
+  select(congress_num, state, name, dim1, dim1_se, pivot, ID)%>%
+  filter(pivot == 'true') 
+  
 ```
 
